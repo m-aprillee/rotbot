@@ -133,13 +133,16 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  digitalWrite(RED_PIN, HIGH);
-  digitalWrite(GREEN_PIN, HIGH);
-  digitalWrite(YELLOW_PIN, HIGH);
-  currentLight = analogRead(LIGHT_PIN);
-  Serial.println("Light Sensor Read Value: " + (String) currentLight);
 
-  //  READ DATA
+  // Food starts as fresh (green light on)
+  digitalWrite(GREEN_PIN, HIGH);
+  // digitalWrite(YELLOW_PIN, HIGH);
+  // digitalWrite(RED_PIN, HIGH);
+
+  currentLight = analogRead(LIGHT_PIN);
+  Serial.println("\nLight Sensor Read Value: " + (String) currentLight);
+
+  // READ DATA
   Serial.println();
   Serial.print("DHT20, \t");
   int status = DHT.read();
@@ -180,10 +183,10 @@ void loop() {
   WiFiClient c;
   HttpClient http(c);
   //  err = http.get(kHostname, kPath);
-  char array[10];
+  char array[50];
   sprintf(array, "/?var=Temperature=%f,Humidity=%f", DHT.getTemperature(), DHT.getHumidity());
   Serial.println(array);
-  err = http.get("18.117.89.116", 5000, array);
+  err = http.get("3.145.196.4", 5000, array);
   
   if (err == 0) {
   Serial.println("startedRequest ok");
@@ -216,9 +219,10 @@ void loop() {
         } else {
           // We haven't got any data, so let's pause to allow some to
           // arrive
+          
           delay(kNetworkDelay);
         }
-        }
+      }
       } else {
         Serial.print("Failed to skip response headers: ");
         Serial.println(err);
@@ -237,5 +241,5 @@ void loop() {
   // while (1)
   //   ;
   delay(2000);
-  
+
 }
