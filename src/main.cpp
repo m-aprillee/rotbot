@@ -22,6 +22,31 @@
 // Light Sensor
 #define LIGHT_PIN 36
 
+// Categories
+// Temperature
+#define LOW_TEMP 22     // <= 22C
+#define ROOM_TEMP 24    // 23 - 24
+#define WARM_TEMP 29    // 25 - 29
+#define HIGH_TEMP 30    // >= 30
+// Humidity
+#define LOW_HUMIDITY 28     // <= 28
+#define NORMAL_HUMIDITY 55  // 28 - 54
+#define HIGH_HUMIDITY 56    // >= 56
+// Light
+#define NO_LIGHT 0
+#define DIM_LIGHT 1300
+#define LOW_LIGHT 2500
+#define BRIGHT_LIGHT 2501
+
+// Patterns
+#define GREEN_STATE 1 
+#define YELLOW_STATE 2
+#define RED_STATE 3
+int current_state; 
+
+int green[2][3] = {{ROOM_TEMP, NORMAL_HUMIDITY, BRIGHT_LIGHT}, {LOW_TEMP, LOW_HUMIDITY, LOW_LIGHT}};
+int yellow[3][3] = {{ROOM_TEMP, NORMAL_HUMIDITY, NO_LIGHT}, {HIGH_TEMP, LOW_HUMIDITY, LOW_LIGHT}, {WARM_TEMP, HIGH_HUMIDITY, NO_LIGHT}};
+int red[1][3] = {{WARM_TEMP, HIGH_HUMIDITY, DIM_LIGHT}};
 
 // Wifi Connection & DHT20 Setup:
 char ssid[50]; // your network SSID (name)
@@ -132,16 +157,33 @@ void setup() {
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(YELLOW_PIN, OUTPUT);
-
+  
+  // Default value
+  current_state = GREEN_STATE;
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
 
-  // Food starts as fresh (green light on)
-  digitalWrite(GREEN_PIN, HIGH);
-  // digitalWrite(YELLOW_PIN, HIGH);
-  // digitalWrite(RED_PIN, HIGH);
+  // LED Lights
+  switch(current_state) {
+    case YELLOW_STATE:
+      digitalWrite(YELLOW_PIN, HIGH);
+      digitalWrite(RED_PIN, LOW);
+      digitalWrite(GREEN_PIN, LOW);
+      break;
+    case RED_STATE:
+      digitalWrite(RED_PIN, HIGH);
+      digitalWrite(YELLOW_PIN, LOW);
+      digitalWrite(GREEN_PIN, LOW);
+      break;
+    default:
+      digitalWrite(GREEN_PIN, HIGH);
+      digitalWrite(RED_PIN, LOW);
+      digitalWrite(YELLOW_PIN, LOW);
+      break;
+  }
+  
 
   currentLight = analogRead(LIGHT_PIN);
   Serial.println("\nLight Sensor Read Value: " + (String) currentLight);
@@ -190,7 +232,7 @@ void loop() {
   //  err = http.get(kHostname, kPath);
   char query[50];
   sprintf(query, "/?var=Temperature=%f&Humidity=%f", DHT.getTemperature(), DHT.getHumidity());
-  Serial.println(query);
+  // Serial.println(query);
   err = http.get("3.145.196.4", 5000, query);
   int httpResponseCode = http.post("3.145.196.4", 5000, query);
   
@@ -245,9 +287,7 @@ void loop() {
   }
   http.stop();
 
-  // And just stop, now that we've tried a download
-  // while (1)
-  //   ;
+  // Category Checking
   delay(2000);
 
 }
