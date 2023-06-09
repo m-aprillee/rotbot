@@ -39,6 +39,7 @@ const int kNetworkDelay = 1000;
 
 // Global Variables
 DHT20 DHT(&Wire);       // Temperature & Humidity Sensor
+
 float currentLight;
 void nvs_access() {
   // Initialize NVS
