@@ -123,6 +123,9 @@ void wifiSetup() {
 void setup() {
   Serial.begin(9600);
   delay(1000);
+  Serial.println();
+  Serial.print("ESP Board MAC Address:  ");
+  Serial.println(WiFi.macAddress());
   wifiSetup();
   // set LED pins # as output
   pinMode(RED_PIN, OUTPUT);
@@ -182,12 +185,16 @@ void loop() {
   int err = 0;
   WiFiClient c;
   HttpClient http(c);
+  // HTTPClient http;
   //  err = http.get(kHostname, kPath);
-  char array[50];
-  sprintf(array, "/?var=Temperature=%f,Humidity=%f", DHT.getTemperature(), DHT.getHumidity());
-  Serial.println(array);
-  err = http.get("3.145.196.4", 5000, array);
+  char query[50];
+  sprintf(query, "/?var=Temperature=%f&Humidity=%f", DHT.getTemperature(), DHT.getHumidity());
+  Serial.println(query);
+  err = http.get("3.145.196.4", 5000, query);
+  int httpResponseCode = http.post("3.145.196.4", 5000, query);
   
+  
+
   if (err == 0) {
   Serial.println("startedRequest ok");
   err = http.responseStatusCode();
