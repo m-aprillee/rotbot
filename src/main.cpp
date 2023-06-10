@@ -24,19 +24,19 @@
 
 // Categories
 // Temperature
-#define LOW_TEMP 22     // <= 22C
-#define ROOM_TEMP 24    // 23 - 24
-#define WARM_TEMP 29    // 25 - 29
+#define LOW_TEMP 22     // <= 22
+#define ROOM_TEMP 24    // 24 - 29
+#define WARM_TEMP 29    // 29 - 30
 #define HIGH_TEMP 30    // >= 30
 // Humidity
 #define LOW_HUMIDITY 28     // <= 28
-#define NORMAL_HUMIDITY 55  // 28 - 54
-#define HIGH_HUMIDITY 56    // >= 56
+#define NORMAL_HUMIDITY 60  // 28 - 60
+#define HIGH_HUMIDITY 61    // >= 60
 // Light
-#define NO_LIGHT 0
+#define NO_LIGHT 50 
 #define DIM_LIGHT 1300
-#define LOW_LIGHT 2500
-#define BRIGHT_LIGHT 2501
+#define ROOM_LIGHT 2300
+#define BRIGHT_LIGHT 2301
 
 // Patterns
 #define GREEN_STATE 1 
@@ -44,9 +44,15 @@
 #define RED_STATE 3
 int current_state; 
 
-int green[2][3] = {{ROOM_TEMP, NORMAL_HUMIDITY, BRIGHT_LIGHT}, {LOW_TEMP, LOW_HUMIDITY, LOW_LIGHT}};
-int yellow[3][3] = {{ROOM_TEMP, NORMAL_HUMIDITY, NO_LIGHT}, {HIGH_TEMP, LOW_HUMIDITY, LOW_LIGHT}, {WARM_TEMP, HIGH_HUMIDITY, NO_LIGHT}};
-int red[1][3] = {{WARM_TEMP, HIGH_HUMIDITY, DIM_LIGHT}};
+#define GREEN_SIZE 2
+#define YELLOW_SIZE 2
+#define RED_SIZE 2
+
+int green[GREEN_SIZE][3] = {{ROOM_TEMP, NORMAL_HUMIDITY, BRIGHT_LIGHT}, {LOW_TEMP, LOW_HUMIDITY, ROOM_LIGHT}};
+int yellow[YELLOW_SIZE][3] = {{ROOM_TEMP, NORMAL_HUMIDITY, NO_LIGHT}, {HIGH_TEMP, LOW_HUMIDITY, ROOM_LIGHT}};
+int red[RED_SIZE][3] = {{WARM_TEMP, HIGH_HUMIDITY, DIM_LIGHT}, {WARM_TEMP, HIGH_HUMIDITY, NO_LIGHT}};
+
+#define AWS_PUBLIC_IP "3.145.196.4"
 
 // Wifi Connection & DHT20 Setup:
 char ssid[50]; // your network SSID (name)
@@ -65,7 +71,10 @@ const int kNetworkDelay = 1000;
 // Global Variables
 DHT20 DHT(&Wire);       // Temperature & Humidity Sensor
 
-float currentLight;
+float current_light;
+float current_temp;
+float current_humidity;
+
 void nvs_access() {
   // Initialize NVS
   esp_err_t err = nvs_flash_init();
@@ -163,8 +172,6 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
   // LED Lights
   switch(current_state) {
     case YELLOW_STATE:
@@ -185,8 +192,8 @@ void loop() {
   }
   
 
-  currentLight = analogRead(LIGHT_PIN);
-  Serial.println("\nLight Sensor Read Value: " + (String) currentLight);
+  current_light = analogRead(LIGHT_PIN);
+  Serial.println("\nLight Sensor Read Value: " + (String) current_light);
 
   // READ DATA
   Serial.println();
@@ -221,22 +228,34 @@ void loop() {
   }
 
   //  DISPLAY DATA, sensor has only one decimal.
-  Serial.print(DHT.getHumidity(), 1);
+  current_temp = DHT.getTemperature();
+  current_humidity = DHT.getHumidity();
+
+  Serial.print(current_humidity, 1);
   Serial.print(",\t");
-  Serial.println(DHT.getTemperature(), 1);
+  Serial.println(current_temp, 1);
 
   int err = 0;
   WiFiClient c;
   HttpClient http(c);
   // HTTPClient http;
   //  err = http.get(kHostname, kPath);
-  char query[50];
-  sprintf(query, "/?var=Temperature=%f&Humidity=%f", DHT.getTemperature(), DHT.getHumidity());
+  String state = "";
+  switch(current_state){
+    case (GREEN_STATE):
+      state = "GREEN";
+      break;
+    case (YELLOW_STATE):
+      state = "YELLOW";
+      break;
+    case (RED_STATE):
+      state = "RED";
+      break;
+  }
+  char query[100];
+  sprintf(query, "/?temp=%.2f&humidity=%.2f&light=%.2f&state=%s", DHT.getTemperature(), DHT.getHumidity(), current_light, state);
   // Serial.println(query);
-  err = http.get("3.145.196.4", 5000, query);
-  int httpResponseCode = http.post("3.145.196.4", 5000, query);
-  
-  
+  err = http.get(AWS_PUBLIC_IP, 5000, query);
 
   if (err == 0) {
   Serial.println("startedRequest ok");
@@ -285,9 +304,64 @@ void loop() {
     Serial.print("Connect failed: ");
     Serial.println(err);
   }
-  http.stop();
+  
 
   // Category Checking
-  delay(2000);
 
+  // What type of temp
+  if (current_temp <= LOW_TEMP) {
+    current_temp = LOW_TEMP;
+  } else if (current_temp <= ROOM_TEMP) {
+    current_temp = ROOM_TEMP;
+  } else if (current_temp <= WARM_TEMP) {
+    current_temp = WARM_TEMP;
+  } else {
+    current_temp = HIGH_TEMP;
+  }
+  // What type of humidity
+  if (current_humidity <= LOW_HUMIDITY) {
+    current_humidity = LOW_HUMIDITY;
+  } else if (current_humidity <= NORMAL_HUMIDITY) {
+    current_humidity = NORMAL_HUMIDITY;
+  } else {
+    current_humidity = HIGH_HUMIDITY;
+  }
+  // What type of light
+  if (current_light <= NO_LIGHT) {
+    current_light = NO_LIGHT;
+  } else if (current_light <= DIM_LIGHT) {
+    current_light = DIM_LIGHT;
+  } else if (current_light <= ROOM_LIGHT) {
+    current_light = ROOM_LIGHT;
+  } else {
+    current_light = BRIGHT_LIGHT;
+  }
+  // Category matching
+  for (int i = 0; i <GREEN_SIZE; i++) {
+    if (current_temp == green[i][0] && current_humidity == green[i][1] && current_light == green[i][2]) {
+      current_state = GREEN_STATE;
+      break;
+    }
+  }
+  for (int i = 0; i <YELLOW_SIZE; i++) {
+    if (current_temp == yellow[i][0] && current_humidity == yellow[i][1] && current_light == yellow[i][2]) {
+      current_state = YELLOW_STATE;
+      break;
+    }
+  }
+  for (int i = 0; i <RED_SIZE; i++) {
+    if (current_temp == red[i][0] && current_humidity == red[i][1] && current_light == red[i][2]) {
+      current_state = RED_STATE;
+      break;
+    }
+  }
+
+  // if does not match any state, set to default green
+  if (current_state == 0){
+    current_state = YELLOW_STATE;
+  }
+
+  Serial.print("\nState: "); Serial.println(current_state);
+  http.stop();
+  delay(2000);
 }
